@@ -20,14 +20,24 @@ jobs:
   scan:
     runs-on: ubuntu-latest
     timeout-minutes: 50
+    env:
+      # Until a city is set, runs skip instead of failing (and emailing you) every 10 minutes.
+      CONFIGURED: ${{ secrets.LOCATION != '' || secrets.LOCATION_KEYWORDS != '' }}
     steps:
+      - name: Waiting for setup
+        if: env.CONFIGURED != 'true'
+        run: echo "::notice::Add the LOCATION secret (and NTFY_TOPIC for phone alerts) to start scanning. See README."
+
       - uses: actions/checkout@v7
+        if: env.CONFIGURED == 'true'
 
       - uses: actions/setup-python@v7
+        if: env.CONFIGURED == 'true'
         with:
           python-version: "3.13"
 
       - name: Restore state
+        if: env.CONFIGURED == 'true'
         uses: actions/cache/restore@v6
         with:
           path: state
@@ -35,6 +45,7 @@ jobs:
           restore-keys: radar-state-
 
       - name: Scan
+        if: env.CONFIGURED == 'true'
         env:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           LOCATION: ${{ secrets.LOCATION }}
@@ -44,7 +55,7 @@ jobs:
         run: python -m radar.main "$MODE"
 
       - name: Save state
-        if: always() && hashFiles('state/**') != ''
+        if: always() && env.CONFIGURED == 'true' && hashFiles('state/**') != ''
         uses: actions/cache/save@v6
         with:
           path: state

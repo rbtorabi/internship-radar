@@ -38,6 +38,7 @@ Without `NTFY_TOPIC` set, alerts are printed instead of sent. Needs only Python 
 
 - GitHub scheduled runs can start 5–20 minutes late when GitHub is busy. That's still far ahead of the job boards.
 - GitHub pauses schedules in repos with no commits for 60 days. If you get that email, click *Enable workflow*.
+- Until the `LOCATION` secret is set, scheduled runs skip with a notice instead of failing.
 - A company missing? See [`companies/README.md`](companies/README.md) to add it.
 - A company that starts hiring near you gets picked up at the next sweep (within 6 hours), then polled every 10 minutes.
 

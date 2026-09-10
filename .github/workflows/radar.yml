@@ -22,7 +22,7 @@ jobs:
     timeout-minutes: 50
     env:
       # Until a city is set, runs skip instead of failing (and emailing you) every 10 minutes.
-      CONFIGURED: ${{ secrets.LOCATION != '' || secrets.LOCATION_KEYWORDS != '' }}
+      CONFIGURED: ${{ secrets.LOCATION != '' || vars.LOCATION != '' || secrets.LOCATION_KEYWORDS != '' }}
     steps:
       - name: Waiting for setup
         if: env.CONFIGURED != 'true'
@@ -48,7 +48,8 @@ jobs:
         if: env.CONFIGURED == 'true'
         env:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
-          LOCATION: ${{ secrets.LOCATION }}
+          # A LOCATION variable works too; unlike a secret, it isn't shown as *** in the run's results table.
+          LOCATION: ${{ secrets.LOCATION || vars.LOCATION }}
           LOCATION_RADIUS_KM: ${{ vars.LOCATION_RADIUS_KM }}
           LOCATION_KEYWORDS: ${{ secrets.LOCATION_KEYWORDS }}
           MODE: ${{ inputs.mode || (github.event.schedule == '23 */6 * * *' && 'sweep' || 'poll') }}

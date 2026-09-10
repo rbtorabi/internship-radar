@@ -75,24 +75,36 @@ def main(mode: str) -> None:
 
     new_hot: dict[str, list[str]] = {src: [] for src in sources.FETCHERS}
     live = 0
-    candidates: list[Job] = []
+    candidates: list[tuple[str, str, Job]] = []
     for (src, board), jobs in zip(tasks, results):
         if jobs is None:
             if mode == "sweep" and board in (hot or {}).get(src, []):
                 new_hot[src].append(board)  # probably a timeout; don't drop a hot company for one bad request
             continue
         live += 1
-        if any(flt.where(j) for j in jobs):
+        if any(flt.where(j) in ("local", "remote") for j in jobs):
             new_hot[src].append(board)
         for job in jobs:
             # Only internship-shaped titles are remembered, which keeps state small.
             if flt.title_ok(job.title, job.intern_flag) and job.key not in seen:
                 seen.add(job.key)
-                candidates.append(job)
+                candidates.append((src, board, job))
 
     with ThreadPoolExecutor(cfg["scan"]["workers"]) as ex:
-        list(ex.map(sources.workday_fill_locations, [j for j in candidates if j.detail]))
-    matches = [(j, reason) for j in candidates if (reason := flt.where(j))]
+        list(ex.map(sources.workday_fill_locations, [j for _, _, j in candidates if j.detail]))
+    for src, board, job in candidates:  # Workday locations are only known after the detail fetch
+        if flt.where(job) in ("local", "remote") and board not in new_hot[src]:
+            new_hot[src].append(board)
+
+    matches: list[tuple[Job, str]] = []
+    for src, board, job in candidates:
+        reason = flt.where(job)
+        # A posting with no location only counts if the company has jobs in your area; otherwise it's usually abroad.
+        if reason == "location not listed" and board not in new_hot[src]:
+            continue
+        if reason:
+            job.locations.sort(key=lambda l: not flt.is_local(l))  # local office first in alerts
+            matches.append((job, reason))
 
     stats = (f"{len(tasks)} boards checked, {live} live, {len(candidates)} new internship titles, "
              f"{len(matches)} match your location, {time.time() - started:.0f}s")

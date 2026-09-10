@@ -16,13 +16,14 @@ radius_km = 50
 keywords = []
 # Also alert on remote roles? (false = commutable only)
 include_remote = false
-# Some postings don't list a location. true = alert anyway so nothing slips through.
+# Some postings don't list a location. true = alert anyway, but only if that company has other jobs in your area.
 include_unknown = true
 
 [roles]
 # Case-insensitive regexes run against the job title (after it's already confirmed to be an internship).
-include = '''software|developer|engineer|\bswe\b|\bsde\b|programm|data|machine learning|\bml\b|\bai\b|artificial intelligence|deep learning|computer vision|\bnlp\b|\bllm|analytics|back.?end|front.?end|full.?stack|mobile|\bios\b|android|platform|infrastructure|cloud|devops|\bsre\b|reliability|security|cyber|research scien|applied scien|quant|robotics|embedded|firmware|\bweb\b|\bit\b'''
-exclude = '''\b(senior|sr\.?|staff|principal|director|manager|head of|lead|phd|ph\.d|mba|postdoc)\b|mechanical|civil|chemical|structural|manufacturing|process engineer|sales|marketing|recruit|legal|account|business development|\bhr\b|people ops'''
+# Plain "engineer" is deliberately not included: in many cities most "Engineering Intern" roles are electrical/energy/industrial.
+include = '''software|developer|\bswe\b|\bsde\b|programm|coding|computer science|computer engineering|data|machine learning|\bml\b|\bai\b|artificial intelligence|deep learning|computer vision|\bnlp\b|\bllm|analytics|back.?end|front.?end|full.?stack|mobile|\bios\b|android|platform|infrastructure|cloud|devops|\bsre\b|site reliability|security|cyber|research scien|applied scien|quant|robotics|embedded|firmware|\bweb\b|\bit\b|systems engineer|solutions engineer|automation engineer|test engineer|\bqa\b'''
+exclude = '''\b(senior|sr\.?|staff|principal|director|manager|head of|lead|phd|ph\.d|mba|postdoc)\b|mechanical|civil|chemical|structural|manufacturing|process engineer|sales|marketing|recruit|legal|account|business development|\bhr\b|people ops|electrical|petroleum|drilling|completions|reservoir|geolog|geophys|environmental|industrial|logistics|supply chain|audit|\btax\b|non.?engineering|optical|biomedical|aerospace|nuclear|pipeline|facilities|construction|hvac'''
 
 [notify]
 # Your ntfy topic is read from the NTFY_TOPIC environment variable / GitHub secret, never from this file.

@@ -34,6 +34,9 @@ class Filter:
         years = {int(y) for y in YEAR.findall(title)}
         return not years or bool(years & self.years)
 
+    def is_local(self, text: str) -> bool:
+        return bool((self.area and self.area.matches(text)) or any(p.search(text) for p in self.places))
+
     def match(self, job: Job) -> str | None:
         """Returns why the job matched ("local", "remote", "location not listed"), or None to skip it."""
         return self.where(job) if self.title_ok(job.title, job.intern_flag) else None
@@ -41,7 +44,7 @@ class Filter:
     def where(self, job: Job) -> str | None:
         """Location check only, for any role."""
         where = " | ".join(job.locations)
-        if (self.area and self.area.matches(where)) or any(p.search(where) for p in self.places):
+        if self.is_local(where):
             return "local"
         if job.remote or REMOTE.search(where):
             return "remote" if self.include_remote else None

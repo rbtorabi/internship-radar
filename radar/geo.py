@@ -13,6 +13,9 @@ DATA = Path(__file__).with_name("cities.tsv.gz")
 CA_PROVINCES = {"01": "AB", "02": "BC", "03": "MB", "04": "NB", "05": "NL", "07": "NS", "08": "ON",
                 "09": "PE", "10": "QC", "11": "SK", "12": "YT", "13": "NT", "14": "NU"}
 COUNTRY_ALIASES = {"US": ["US", "U.S.", "USA", "United States of America"], "GB": ["UK", "U.K."]}
+# How postings commonly write a city whose GeoNames name differs. (Don't strip " City" in general:
+# "Missouri City" would become "Missouri" and match the whole state.)
+CITY_ALIASES = {"New York City": {"New York", "NYC"}}
 
 
 @dataclass
@@ -30,8 +33,7 @@ class City:
 
     @property
     def names(self) -> set[str]:
-        names = {self.name, self.ascii}
-        names |= {n.removesuffix(" City") for n in names}  # "New York City" -> "New York"
+        names = {self.name, self.ascii} | CITY_ALIASES.get(self.ascii, set())
         return {n for n in names if n}
 
     @property
@@ -86,6 +88,8 @@ class Area:
         dist = {id(c): km(self.home, c) for c in cities}
         self.nearby = sorted((c for c in cities if dist[id(c)] <= radius_km), key=lambda c: -c.pop)
         far_names = {n.lower() for c in cities if dist[id(c)] > radius_km for n in c.names}
+        # A town named like a state/country ("Washington", "Georgia") needs a hint too, or it matches the whole region.
+        far_names |= {n.lower() for c in cities for n in (c.admin1_name, c.country) if n}
 
         plain: set[str] = set()
         ambiguous: dict[str, set[str]] = defaultdict(set)

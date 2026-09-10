@@ -111,9 +111,17 @@ def workday(entry: str, max_jobs: int = 200) -> list[Job] | None:
 
 
 def workday_fill_locations(job: Job) -> None:
-    """Workday list results say "3 Locations"; the detail endpoint has the real ones."""
+    """Workday list results say "3 Locations" or nothing; the detail endpoint usually has the real ones."""
     info = (_get(job.detail) or {}).get("jobPostingInfo") or {}
-    job.locations = [l for l in [info.get("location"), *(info.get("additionalLocations") or [])] if l]
+    req = info.get("jobRequisitionLocation") or {}
+    locs = [info.get("location"), *(info.get("additionalLocations") or []),
+            req.get("descriptor") if isinstance(req, dict) else req,
+            (info.get("country") or (req.get("country") if isinstance(req, dict) else None) or {}).get("descriptor")]
+    locs = [l for l in locs if isinstance(l, str) and l.strip()]
+    parts = job.id.strip("/").split("/")  # id is the externalPath: job/<Location>/<Title_ID> or job/<Title_ID>
+    if not locs and len(parts) == 3:
+        locs = [parts[1].replace("-", " ")]
+    job.locations = list(dict.fromkeys(locs))
     job.remote = job.remote or "remote" in (info.get("remoteType") or "").lower()
     job.posted_at = info.get("startDate")
 

@@ -16,6 +16,21 @@ COUNTRY_ALIASES = {"US": ["US", "U.S.", "USA", "United States of America"], "GB"
 # How postings commonly write a city whose GeoNames name differs. (Don't strip " City" in general:
 # "Missouri City" would become "Missouri" and match the whole state.)
 CITY_ALIASES = {"New York City": {"New York", "NYC"}}
+US_STATES = {
+    "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas", "CA": "California", "CO": "Colorado",
+    "CT": "Connecticut", "DE": "Delaware", "DC": "District of Columbia", "FL": "Florida", "GA": "Georgia",
+    "HI": "Hawaii", "ID": "Idaho", "IL": "Illinois", "IN": "Indiana", "IA": "Iowa", "KS": "Kansas", "KY": "Kentucky",
+    "LA": "Louisiana", "ME": "Maine", "MD": "Maryland", "MA": "Massachusetts", "MI": "Michigan", "MN": "Minnesota",
+    "MS": "Mississippi", "MO": "Missouri", "MT": "Montana", "NE": "Nebraska", "NV": "Nevada", "NH": "New Hampshire",
+    "NJ": "New Jersey", "NM": "New Mexico", "NY": "New York", "NC": "North Carolina", "ND": "North Dakota",
+    "OH": "Ohio", "OK": "Oklahoma", "OR": "Oregon", "PA": "Pennsylvania", "RI": "Rhode Island",
+    "SC": "South Carolina", "SD": "South Dakota", "TN": "Tennessee", "TX": "Texas", "UT": "Utah", "VT": "Vermont",
+    "VA": "Virginia", "WA": "Washington", "WV": "West Virginia", "WI": "Wisconsin", "WY": "Wyoming", "PR": "Puerto Rico",
+}
+STATE_BY_NAME = {name.lower(): code for code, name in US_STATES.items()}
+# A place name with no state or "USA" next to it only counts if it's a big US city: bare "Houston" does,
+# bare "Kensington" (London) or "Airport" doesn't.
+BARE_NAME_MIN_POP = 100_000
 
 
 @dataclass
@@ -30,6 +45,7 @@ class City:
     lat: float
     lon: float
     pop: int
+    gid: int = 0  # GeoNames id
 
     @property
     def names(self) -> set[str]:
@@ -52,7 +68,7 @@ class City:
 
 def load() -> list[City]:
     with gzip.open(DATA, "rt", encoding="utf-8") as f:
-        return [City(*p[:7], float(p[7]), float(p[8]), int(p[9] or 0))
+        return [City(*p[:7], float(p[7]), float(p[8]), int(p[9] or 0), int(p[10]) if len(p) > 10 and p[10] else 0)
                 for p in (line.rstrip("\n").split("\t") for line in f)]
 
 
@@ -106,3 +122,56 @@ class Area:
         if self._plain and self._plain.search(text):
             return True
         return any(n.search(text) and h.search(text) for n, h in self._ambiguous)
+
+
+class USLocator:
+    """Finds US cities in free-text job locations: "Houston, TX", "US-TX-Katy", "Chicago IL USA"."""
+
+    def __init__(self):
+        cities = load()
+        self.cities = [c for c in cities if c.cc == "US"]
+        self.by_gid = {c.gid: c for c in self.cities}
+        self._by_name: dict[str, list[City]] = defaultdict(list)
+        for c in self.cities:
+            for n in c.names:
+                self._by_name[n.lower()].append(c)
+        # The most populous place with each name worldwide: "Paris" alone means France, "Houston" alone means Texas.
+        self._biggest: dict[str, City] = {}
+        for c in cities:
+            for n in c.names:
+                if c.pop > getattr(self._biggest.get(n.lower()), "pop", -1):
+                    self._biggest[n.lower()] = c
+        self._names = _words(n for c in self.cities for n in c.names)
+        self._codes = _words(US_STATES)
+        self._states = _words(US_STATES.values())
+        self._usa = _words(["United States", "United States of America", "USA", "U.S.", "U.S.A.", "US"])
+        foreign = {c.country for c in cities if c.cc != "US" and c.country} | {"UK", "U.K."}
+        # "Georgia" and "Jersey" are also countries; don't let them hide US states.
+        self._foreign = _words(f for f in foreign if not any(_words([f]).search(s) for s in US_STATES.values()))
+        self._foreign_cities = _words(n for c in cities if c.cc != "US" and c.pop >= 100_000
+                                      for n in c.names if self._biggest[n.lower()] is c)
+        self._cache: dict[str, tuple[list[City], bool | None]] = {}
+
+    def locate(self, text: str) -> tuple[list[City], bool | None]:
+        """Returns (US cities named in the text, True = in the US / False = abroad / None = can't tell)."""
+        if text in self._cache:
+            return self._cache[text]
+        states = {m.group(0) for m in self._codes.finditer(text)}
+        states |= {STATE_BY_NAME[m.group(0).lower()] for m in self._states.finditer(text)}
+        found: dict[int, City] = {}
+        says_usa = bool(self._usa.search(text))
+        for m in self._names.finditer(text):
+            name = m.group(0).lower()
+            options = [c for c in self._by_name[name] if not states or c.admin1 in states]
+            biggest = self._biggest[name]
+            if options and (states or says_usa or (biggest.cc == "US" and biggest.pop >= BARE_NAME_MIN_POP)):
+                best = max(options, key=lambda c: c.pop)
+                found[best.gid] = best
+        if found:
+            result = (list(found.values()), True)
+        elif self._foreign.search(text) or self._foreign_cities.search(text):
+            result = ([], False)
+        else:
+            result = ([], True if states or says_usa else None)
+        self._cache[text] = result
+        return result

@@ -32,8 +32,8 @@ def main() -> None:
         f = line.split("\t")
         cc, a1 = f[8], f[10]
         country, iso3 = countries.get(cc, ("", ""))
-        # name, ascii name, country code, country, ISO3, admin1 code, admin1 name, lat, lon, population
-        rows.append("\t".join([f[1], f[2], cc, country, iso3, a1, admin1.get(f"{cc}.{a1}", ""), f[4], f[5], f[14]]))
+        # name, ascii name, country code, country, ISO3, admin1 code, admin1 name, lat, lon, population, GeoNames id
+        rows.append("\t".join([f[1], f[2], cc, country, iso3, a1, admin1.get(f"{cc}.{a1}", ""), f[4], f[5], f[14], f[0]]))
     with gzip.open(OUT, "wt", encoding="utf-8") as g:
         g.write("\n".join(rows) + "\n")
     print(f"wrote {len(rows)} places to {OUT}")

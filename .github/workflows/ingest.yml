@@ -1,0 +1,47 @@
+name: ingest
+
+on:
+  schedule:
+    - cron: "7,22,37,52 * * * *"  # poll: boards that posted in the last few days
+    - cron: "41 */4 * * *"        # sweep: every board
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        options: [sweep, poll]
+        default: sweep
+
+concurrency:
+  group: ingest
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      CONFIGURED: ${{ secrets.DATABASE_URL != '' }}
+    steps:
+      - name: Waiting for setup
+        if: env.CONFIGURED != 'true'
+        run: echo "::notice::Add the DATABASE_URL secret to start syncing jobs for the befirst app."
+
+      - uses: actions/checkout@v7
+        if: env.CONFIGURED == 'true'
+
+      - uses: actions/setup-python@v7
+        if: env.CONFIGURED == 'true'
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install
+        if: env.CONFIGURED == 'true'
+        run: pip install -r requirements.txt
+
+      - name: Sync jobs
+        if: env.CONFIGURED == 'true'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          MODE: ${{ inputs.mode || (github.event.schedule == '41 */4 * * *' && 'sweep' || 'poll') }}
+        run: python -m radar.ingest "$MODE"

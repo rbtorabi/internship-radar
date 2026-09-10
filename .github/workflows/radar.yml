@@ -1,0 +1,51 @@
+name: radar
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"  # poll: companies hiring near you
+    - cron: "23 */6 * * *"  # sweep: every company, rebuilds the hot list
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        options: [sweep, poll]
+        default: sweep
+
+# One run at a time so runs never overwrite each other's state.
+concurrency:
+  group: radar
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Restore state
+        uses: actions/cache/restore@v6
+        with:
+          path: state
+          key: radar-state-${{ github.run_id }}
+          restore-keys: radar-state-
+
+      - name: Scan
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          LOCATION: ${{ secrets.LOCATION }}
+          LOCATION_RADIUS_KM: ${{ vars.LOCATION_RADIUS_KM }}
+          LOCATION_KEYWORDS: ${{ secrets.LOCATION_KEYWORDS }}
+          MODE: ${{ inputs.mode || (github.event.schedule == '23 */6 * * *' && 'sweep' || 'poll') }}
+        run: python -m radar.main "$MODE"
+
+      - name: Save state
+        if: always() && hashFiles('state/**') != ''
+        uses: actions/cache/save@v6
+        with:
+          path: state
+          key: radar-state-${{ github.run_id }}-${{ github.run_attempt }}

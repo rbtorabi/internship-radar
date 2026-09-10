@@ -1,0 +1,36 @@
+# Internship Radar settings. Edit this file, commit, and the next run uses it.
+
+[profile]
+# Titles that name a year ("Summer 2026 Intern") are skipped unless it's one of these.
+# Titles with no year at all always pass.
+target_years = [2027]
+
+[location]
+# Your city. Add the province/state or country if the name is common: "London, Canada", "Cambridge, MA".
+# On GitHub, set the LOCATION secret instead so your city stays out of the public code.
+city = ""
+# How far you can commute. Every town of 15k+ people within this distance counts as local.
+# On GitHub: the LOCATION_RADIUS_KM variable.
+radius_km = 50
+# Optional extra place names to count as local, e.g. a neighbourhood or campus (LOCATION_KEYWORDS secret, comma-separated).
+keywords = []
+# Also alert on remote roles? (false = commutable only)
+include_remote = false
+# Some postings don't list a location. true = alert anyway so nothing slips through.
+include_unknown = true
+
+[roles]
+# Case-insensitive regexes run against the job title (after it's already confirmed to be an internship).
+include = '''software|developer|engineer|\bswe\b|\bsde\b|programm|data|machine learning|\bml\b|\bai\b|artificial intelligence|deep learning|computer vision|\bnlp\b|\bllm|analytics|back.?end|front.?end|full.?stack|mobile|\bios\b|android|platform|infrastructure|cloud|devops|\bsre\b|reliability|security|cyber|research scien|applied scien|quant|robotics|embedded|firmware|\bweb\b|\bit\b'''
+exclude = '''\b(senior|sr\.?|staff|principal|director|manager|head of|lead|phd|ph\.d|mba|postdoc)\b|mechanical|civil|chemical|structural|manufacturing|process engineer|sales|marketing|recruit|legal|account|business development|\bhr\b|people ops'''
+
+[notify]
+# Your ntfy topic is read from the NTFY_TOPIC environment variable / GitHub secret, never from this file.
+server = "https://ntfy.sh"
+# Safety valve: if a run finds more than this many new matches, send one summary instead of spamming.
+max_per_run = 15
+
+[scan]
+# Parallel HTTP requests. Higher = faster sweep, but be polite to the ATS hosts.
+workers = 48
+timeout_seconds = 10
